@@ -22,8 +22,13 @@ const Dashboard = ({ user, onLogout }) => {
   // Modal states
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [showPropertyModal, setShowPropertyModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
+  const [editingProperty, setEditingProperty] = useState(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
+  const [contactInfo, setContactInfo] = useState({});
+  const [companies, setCompanies] = useState([]);
   
   // Form states
   const [categoryForm, setCategoryForm] = useState({
@@ -40,8 +45,31 @@ const Dashboard = ({ user, onLogout }) => {
     file: null
   });
 
+  const [contactForm, setContactForm] = useState({
+    phones: [''],
+    emails: [''],
+    whatsapp: '',
+    instagram: '',
+    address_en: '',
+    address_ar: ''
+  });
+
+  const [propertyForm, setPropertyForm] = useState({
+    category_id: '',
+    title_en: '',
+    title_ar: '',
+    description_en: '',
+    description_ar: '',
+    location: '',
+    video_url: '',
+    featured: false,
+    images: []
+  });
+
   useEffect(() => {
     fetchCategories();
+    fetchContactInfo();
+    fetchCompanies();
   }, []);
 
   const fetchCategories = async () => {
@@ -53,6 +81,34 @@ const Dashboard = ({ user, onLogout }) => {
       setError('Failed to fetch categories');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchContactInfo = async () => {
+    try {
+      const response = await axios.get('/contact');
+      setContactInfo(response.data);
+      
+      // Populate contact form
+      setContactForm({
+        phones: response.data.phone ? response.data.phone.map(p => p.value) : [''],
+        emails: response.data.email ? response.data.email.map(e => e.value) : [''],
+        whatsapp: response.data.whatsapp ? response.data.whatsapp[0]?.value || '' : '',
+        instagram: response.data.instagram ? response.data.instagram[0]?.value || '' : '',
+        address_en: response.data.address_en ? response.data.address_en[0]?.value || '' : '',
+        address_ar: response.data.address_ar ? response.data.address_ar[0]?.value || '' : ''
+      });
+    } catch (err) {
+      console.error('Failed to fetch contact info:', err);
+    }
+  };
+
+  const fetchCompanies = async () => {
+    try {
+      const response = await axios.get('/companies');
+      setCompanies(response.data);
+    } catch (err) {
+      console.error('Failed to fetch companies:', err);
     }
   };
 
@@ -174,6 +230,73 @@ const Dashboard = ({ user, onLogout }) => {
     setShowImageModal(true);
   };
 
+  const handleUpdateContact = async (e) => {
+    e.preventDefault();
+    try {
+      const contacts = [];
+      
+      // Add phones
+      contactForm.phones.forEach(phone => {
+        if (phone.trim()) {
+          contacts.push({ type: 'phone', value: phone.trim(), label_en: 'Phone', label_ar: 'الهاتف' });
+        }
+      });
+      
+      // Add emails
+      contactForm.emails.forEach(email => {
+        if (email.trim()) {
+          contacts.push({ type: 'email', value: email.trim(), label_en: 'Email', label_ar: 'البريد الإلكتروني' });
+        }
+      });
+      
+      // Add WhatsApp
+      if (contactForm.whatsapp.trim()) {
+        contacts.push({ type: 'whatsapp', value: contactForm.whatsapp.trim(), label_en: 'WhatsApp', label_ar: 'واتساب' });
+      }
+      
+      // Add Instagram
+      if (contactForm.instagram.trim()) {
+        contacts.push({ type: 'instagram', value: contactForm.instagram.trim(), label_en: 'Instagram', label_ar: 'إنستغرام' });
+      }
+      
+      // Add addresses
+      if (contactForm.address_en.trim()) {
+        contacts.push({ type: 'address_en', value: contactForm.address_en.trim(), label_en: 'Address', label_ar: 'العنوان' });
+      }
+      if (contactForm.address_ar.trim()) {
+        contacts.push({ type: 'address_ar', value: contactForm.address_ar.trim(), label_en: 'Address', label_ar: 'العنوان' });
+      }
+      
+      await axios.put('/contact', { contacts });
+      showMessage('Contact information updated successfully');
+      setShowContactModal(false);
+      fetchContactInfo();
+    } catch (err) {
+      showMessage(err.response?.data?.error || 'Failed to update contact information', 'error');
+    }
+  };
+
+  const addContactField = (type) => {
+    setContactForm(prev => ({
+      ...prev,
+      [type]: [...prev[type], '']
+    }));
+  };
+
+  const removeContactField = (type, index) => {
+    setContactForm(prev => ({
+      ...prev,
+      [type]: prev[type].filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateContactField = (type, index, value) => {
+    setContactForm(prev => ({
+      ...prev,
+      [type]: prev[type].map((item, i) => i === index ? value : item)
+    }));
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -235,19 +358,31 @@ const Dashboard = ({ user, onLogout }) => {
             <Plus className="w-4 h-4" />
             Add Category
           </button>
+          <button
+            onClick={() => setShowContactModal(true)}
+            className="btn-secondary flex items-center gap-2"
+          >
+            <Edit className="w-4 h-4" />
+            Edit Contact Info
+          </button>
         </div>
 
         {/* Categories Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {categories.map((category) => (
+          {categories.map((category) => {
+            const categoryName = category.name_en || category.name;
+            const categoryNameAr = category.name_ar;
+            const categoryDescription = category.description_en || category.description;
+            
+            return (
             <div key={category.id} className="card p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <Folder className="w-6 h-6 text-blue-600" />
                   <div>
-                    <h3 className="font-semibold text-gray-900">{category.name}</h3>
-                    {category.name_ar && (
-                      <p className="text-sm text-gray-600">{category.name_ar}</p>
+                    <h3 className="font-semibold text-gray-900">{categoryName}</h3>
+                    {categoryNameAr && (
+                      <p className="text-sm text-gray-600">{categoryNameAr}</p>
                     )}
                   </div>
                 </div>
@@ -267,13 +402,13 @@ const Dashboard = ({ user, onLogout }) => {
                 </div>
               </div>
 
-              {category.description && (
-                <p className="text-sm text-gray-600 mb-4">{category.description}</p>
+              {categoryDescription && (
+                <p className="text-sm text-gray-600 mb-4">{categoryDescription}</p>
               )}
 
               <div className="flex items-center justify-between mb-4">
                 <span className="text-sm text-gray-500">
-                  {category.images.length} images
+                  {category.properties ? category.properties.reduce((total, prop) => total + (prop.images ? prop.images.length : 0), 0) : 0} images
                 </span>
                 <button
                   onClick={() => openImageModal(category.id)}
@@ -285,32 +420,41 @@ const Dashboard = ({ user, onLogout }) => {
               </div>
 
               {/* Images Grid */}
-              {category.images.length > 0 && (
+              {category.properties && category.properties.length > 0 && (
                 <div className="grid grid-cols-3 gap-2">
-                  {category.images.slice(0, 6).map((image) => (
-                    <div key={image.id} className="relative group">
+                  {category.properties.slice(0, 2).map((property) => 
+                    property.images && property.images.slice(0, 3).map((image) => (
+                    <div key={image.id || image.image_url} className="relative group">
                       <img
-                        src={`/uploads/${image.filename}`}
-                        alt={image.title || image.original_name}
+                        src={image.image_url || `/uploads/${image.filename}`}
+                        alt={image.title_en || image.title || image.original_name || 'Property image'}
                         className="w-full h-16 object-cover rounded border"
                       />
                       <button
-                        onClick={() => handleDeleteImage(image.id)}
+                        onClick={() => {
+                          if (image.id) {
+                            handleDeleteImage(image.id);
+                          } else {
+                            showMessage('Cannot delete this image from here', 'error');
+                          }
+                        }}
                         className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <X className="w-3 h-3" />
                       </button>
                     </div>
-                  ))}
-                  {category.images.length > 6 && (
+                    ))
+                  )}
+                  {category.properties && category.properties.reduce((total, prop) => total + (prop.images ? prop.images.length : 0), 0) > 6 && (
                     <div className="w-full h-16 bg-gray-100 rounded border flex items-center justify-center text-xs text-gray-500">
-                      +{category.images.length - 6} more
+                      +{category.properties.reduce((total, prop) => total + (prop.images ? prop.images.length : 0), 0) - 6} more
                     </div>
                   )}
                 </div>
               )}
             </div>
-          ))}
+          );
+          })}
         </div>
 
         {categories.length === 0 && (
@@ -399,6 +543,156 @@ const Dashboard = ({ user, onLogout }) => {
                     setEditingCategory(null);
                     setCategoryForm({ name: '', name_ar: '', description: '', description_ar: '' });
                   }}
+                  className="btn-secondary flex-1"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Contact Modal */}
+      {showContactModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4">Edit Contact Information</h2>
+            
+            <form onSubmit={handleUpdateContact}>
+              <div className="space-y-6">
+                {/* Phone Numbers */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone Numbers
+                  </label>
+                  {contactForm.phones.map((phone, index) => (
+                    <div key={index} className="flex gap-2 mb-2">
+                      <input
+                        type="tel"
+                        className="input-field flex-1"
+                        value={phone}
+                        onChange={(e) => updateContactField('phones', index, e.target.value)}
+                        placeholder="+965 XXXX XXXX"
+                      />
+                      {contactForm.phones.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeContactField('phones', index)}
+                          className="px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => addContactField('phones')}
+                    className="text-blue-600 hover:text-blue-800 text-sm"
+                  >
+                    + Add Phone Number
+                  </button>
+                </div>
+
+                {/* Email Addresses */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email Addresses
+                  </label>
+                  {contactForm.emails.map((email, index) => (
+                    <div key={index} className="flex gap-2 mb-2">
+                      <input
+                        type="email"
+                        className="input-field flex-1"
+                        value={email}
+                        onChange={(e) => updateContactField('emails', index, e.target.value)}
+                        placeholder="email@example.com"
+                      />
+                      {contactForm.emails.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeContactField('emails', index)}
+                          className="px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => addContactField('emails')}
+                    className="text-blue-600 hover:text-blue-800 text-sm"
+                  >
+                    + Add Email Address
+                  </button>
+                </div>
+
+                {/* WhatsApp */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    WhatsApp Number
+                  </label>
+                  <input
+                    type="tel"
+                    className="input-field"
+                    value={contactForm.whatsapp}
+                    onChange={(e) => setContactForm({...contactForm, whatsapp: e.target.value})}
+                    placeholder="+965 XXXX XXXX"
+                  />
+                </div>
+
+                {/* Instagram */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Instagram URL
+                  </label>
+                  <input
+                    type="url"
+                    className="input-field"
+                    value={contactForm.instagram}
+                    onChange={(e) => setContactForm({...contactForm, instagram: e.target.value})}
+                    placeholder="https://www.instagram.com/username/"
+                  />
+                </div>
+
+                {/* Address English */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Address (English)
+                  </label>
+                  <textarea
+                    className="input-field"
+                    rows="3"
+                    value={contactForm.address_en}
+                    onChange={(e) => setContactForm({...contactForm, address_en: e.target.value})}
+                    placeholder="Full address in English"
+                  />
+                </div>
+
+                {/* Address Arabic */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Address (Arabic)
+                  </label>
+                  <textarea
+                    className="input-field"
+                    rows="3"
+                    value={contactForm.address_ar}
+                    onChange={(e) => setContactForm({...contactForm, address_ar: e.target.value})}
+                    placeholder="العنوان الكامل بالعربية"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-3 mt-6">
+                <button type="submit" className="btn-primary flex-1">
+                  Update Contact Info
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowContactModal(false)}
                   className="btn-secondary flex-1"
                 >
                   Cancel
