@@ -1,9 +1,33 @@
 import * as React from 'react';
 import { Facebook, Instagram, Phone, Mail } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import axios from 'axios';
 
 const Footer: React.FC = () => {
   const { language, t } = useLanguage();
+  const [contactInfo, setContactInfo] = React.useState<any>({});
+  const [companies, setCompanies] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [contactResponse, companiesResponse] = await Promise.all([
+        axios.get('/api/contact'),
+        axios.get('/api/companies')
+      ]);
+      setContactInfo(contactResponse.data);
+      setCompanies(companiesResponse.data);
+    } catch (error) {
+      console.error('Error fetching footer data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <footer className="bg-gray-900 text-white py-12">
@@ -20,9 +44,11 @@ const Footer: React.FC = () => {
               {/* <a href="https://www.facebook.com/mahmoudeosama2" target="_blank" rel="noopener noreferrer" className="bg-slate-800 hover:bg-amber-500 p-3 rounded-full transition-colors">
                 <Facebook size={20} />
               </a> */}
-              <a href="https://www.instagram.com/eldurraworld/" target="_blank" rel="noopener noreferrer" className="bg-gray-800 p-3 rounded-full transition-colors hover:bg-blue-600" style={{ backgroundColor: '#004aaf' }}>
-                <Instagram size={20} />
-              </a>
+              {contactInfo.instagram && contactInfo.instagram.length > 0 && (
+                <a href={contactInfo.instagram[0].value} target="_blank" rel="noopener noreferrer" className="bg-gray-800 p-3 rounded-full transition-colors hover:bg-blue-600" style={{ backgroundColor: '#004aaf' }}>
+                  <Instagram size={20} />
+                </a>
+              )}
             </div>
           </div>
                    
@@ -38,18 +64,11 @@ const Footer: React.FC = () => {
             <div className="mt-6 space-y-3">
               <div>
                 <h4 className="text-lg font-semibold mb-2" style={{ color: '#004aaf' }}>{t('footer.company')}</h4>
-                 <p className="text-gray-300 text-sm">
-                 {language === 'ar' ? 'شركة حامد عوض'  : 'Hamed Awadh CO'}
-                </p>
-                <p className="text-gray-300 text-sm">
-                 {language === 'ar' ? 'شركة درة العالم' : 'WORLD DURRA CO'}
-                </p>
-                {/* <p className="text-gray-300 text-sm">
-                  {language === 'ar' ? 'شركة حامد عوض الدولية' : 'Hamed Awadh  International'}
-                </p> */}
-                <p className="text-gray-300 text-sm">
-                  {language === 'ar' ? 'شركة درة الخليج' : 'Gulf Durra Co'}
-                </p>
+                {companies.map((company, index) => (
+                  <p key={index} className="text-gray-300 text-sm">
+                    {language === 'ar' ? company.name_ar : company.name_en}
+                  </p>
+                ))}
               </div>
               <div>
                 <h4 className="text-lg font-semibold mb-2" style={{ color: '#004aaf' }}>{t('footer.services')}</h4>
@@ -70,9 +89,9 @@ const Footer: React.FC = () => {
                 {t('footer.phoneNumbers')}
               </h5>
               <ul className="space-y-1 text-gray-300 text-sm">
-                <li>22269915 </li>
-                <li>22269916 </li>
-                <li>22269917 </li>
+                {contactInfo.phone && contactInfo.phone.map((phone: any, index: number) => (
+                  <li key={index}>{phone.value.replace('+965 ', '')}</li>
+                ))}
               </ul>
             </div>
 
@@ -85,9 +104,11 @@ const Footer: React.FC = () => {
               <ul className="space-y-1 text-gray-300 text-sm">
 
                 <li>
-                  <a href="mailto:info@hamedawadh-int.com" className="hover:text-blue-400 transition-colors">
-                    info@hamedawadh-int.com
-                  </a>
+                  {contactInfo.email && contactInfo.email.map((email: any, index: number) => (
+                    <a key={index} href={`mailto:${email.value}`} className="hover:text-blue-400 transition-colors">
+                      {email.value}
+                    </a>
+                  ))}
                 </li>
               </ul>
             </div>
@@ -96,8 +117,14 @@ const Footer: React.FC = () => {
             <div>
               <h5 className="font-medium mb-2" style={{ color: '#004aaf' }}>{t('footer.address')}</h5>
               <ul className="space-y-1 text-gray-300 text-sm">
-                <li>{t('footer.country')}</li>
-
+                {contactInfo.address_en && contactInfo.address_ar && (
+                  <li>
+                    {language === 'ar' 
+                      ? contactInfo.address_ar[0]?.value 
+                      : contactInfo.address_en[0]?.value
+                    }
+                  </li>
+                )}
               </ul>
             </div>
           </div>

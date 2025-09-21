@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { X, MapPin, Eye, ArrowRight, Star, Calendar, Building, Play, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import axios from 'axios';
 
 const Properties: React.FC = () => {
   const { t } = useLanguage();
@@ -8,102 +9,26 @@ const Properties: React.FC = () => {
   const [selectedVideo, setSelectedVideo] = React.useState<string | null>(null);
   const [activeCategory, setActiveCategory] = React.useState<string>('all');
   const [hoveredCard, setHoveredCard] = React.useState<string | null>(null);
+  const [categories, setCategories] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
   
   // Refs for scroll containers (one for each property that might need scrolling)
   const scrollRefs = React.useRef<{ [key: string]: HTMLDivElement | null }>({});
- 
-  const SERVER_IMAGES_BASE_URL = 'https://hacokw.com/uplods/Images';
-  const SERVER_VIDEOS_BASE_URL = 'https://hacokw.com/uplods/videos';
 
-  // Define all server image URLs
-  const serverImages = {
-    // Main Jabriya image
-    jabriyaImg: `${SERVER_IMAGES_BASE_URL}/jabriya.jpg`,
-    
-    // Al Jabriya Hotel Images
-    aljabria1: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/asd.jpg`,
-    aljabria2: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/asdd.jpg`,
-    aljabria3: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/casc.jpg`,
-    aljabria4: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/cx.jpg`,
-    aljabria5: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/dds.jpg`,
-    aljabria6: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/ew.jpg`,
-    aljabria7: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/fs.jpg`,
-    aljabria8: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/hf.jpg`,
-    aljabria9: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/hhf.jpg`,
-    aljabria10: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/jhg.jpg`,
-    aljabria11: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/jj.jpg`,
-    aljabria12: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/mb.jpg`,
-    aljabria13: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/re.jpg`,
-    aljabria14: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/Screenshot 2025-07-29 165559.png`,
-    aljabria15: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/Screenshot 2025-07-29 170035.png`,
-    aljabria16: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/Screenshot 2025-07-29 170427.png`,
-    aljabria17: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/vcvcv.jpg`,
-    aljabria18: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/vvc.jpg`,
-    aljabria19: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/vvcvx.jpg`,
-    aljabria20: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/WhatsApp Image 2025-08-01 at 22.31.53_9f302c48.jpg`,
-    aljabria21: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/WhatsApp Image 2025-08-01 at 22.31.53_77e9edfb.jpg`,
-    aljabria22: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/WhatsApp Image 2025-08-01 at 22.31.53_94b1c07a.jpg`,
-    aljabria23: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/WhatsApp Image 2025-08-01 at 22.31.54_4a009ce5.jpg`,
-    aljabria24: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/WhatsApp Image 2025-08-01 at 22.31.54_04b4a11c.jpg`,
-    aljabria25: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/WhatsApp Image 2025-08-01 at 22.31.54_9ed7b2c2.jpg`,
-    aljabria26: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/WhatsApp Image 2025-08-01 at 22.31.54_b65989e5.jpg`,
-    aljabria27: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/WhatsApp Image 2025-08-01 at 22.31.55_7b5872aa.jpg`,
-    aljabria30: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/WhatsApp Image 2025-08-01 at 22.31.55_df663050.jpg`,
-    aljabria32: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/WhatsApp Image 2025-08-01 at 22.31.56_7842b42a.jpg`,
-    aljabria33: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/WhatsApp Image 2025-08-01 at 22.31.56_c9a5ffee.jpg`,
-    aljabria34: `${SERVER_IMAGES_BASE_URL}/aljabriahotel/WhatsApp Image 2025-08-01 at 22.31.56_ce9dc41d.jpg`,
+  React.useEffect(() => {
+    fetchCategories();
+  }, []);
 
-    // Additional images
-    three: `${SERVER_IMAGES_BASE_URL}/3.jpg`,
-    four: `${SERVER_IMAGES_BASE_URL}/4.jpg`,
-    five: `${SERVER_IMAGES_BASE_URL}/5.jpg`,
-    six: `${SERVER_IMAGES_BASE_URL}/6.jpg`,
-
-    // Al Rayaan Complex Salmiyah
-    alrayaan1: `${SERVER_IMAGES_BASE_URL}/alrayaancomplexsalmiyah/alryan5.jpg`,
-    alrayaan2: `${SERVER_IMAGES_BASE_URL}/alrayaancomplexsalmiyah/alryan6.jpg`,
-    alrayaan3: `${SERVER_IMAGES_BASE_URL}/alrayaancomplexsalmiyah/alryan8.jpg`,
-
-    // Bnid Al-Qar Complex
-    bnidAlqar14and16: `${SERVER_IMAGES_BASE_URL}/bnidalqar/bned2.jpg`,
-    bnidAlqar16and14: `${SERVER_IMAGES_BASE_URL}/bnidalqar/bned1.jpg`,
-
-    // La Plage Complex
-    lablag1: `${SERVER_IMAGES_BASE_URL}/lablagcomplex/lablag2.jpg`,
-    lablag2: `${SERVER_IMAGES_BASE_URL}/lablagcomplex/lablag1.jpg`,
-
-    // Mahbullah Properties
-    mahbullah1: `${SERVER_IMAGES_BASE_URL}/mahbullah216/mahboula1.jpg`,
-    mahbullahComplex1: `${SERVER_IMAGES_BASE_URL}/mahbullahcomplex/mahboula3.jpg`,
-    mahbullahComplex2: `${SERVER_IMAGES_BASE_URL}/mahbullahcomplex/mahboula4.jpg`,
-
-    // Residential Villas and Houses
-    villa1: `${SERVER_IMAGES_BASE_URL}/residentialvillasandhouses/romisia3.jpg`,
-    villa2: `${SERVER_IMAGES_BASE_URL}/residentialvillasandhouses/salwa7.jpg`,
-    villa3: `${SERVER_IMAGES_BASE_URL}/residentialvillasandhouses/romisia7.jpg`,
-    villa4: `${SERVER_IMAGES_BASE_URL}/residentialvillasandhouses/romisia9.jpg`,
-    villa5: `${SERVER_IMAGES_BASE_URL}/residentialvillasandhouses/romisia12.jpg`,
-
-    // Previous Managed Properties
-    hamra1: `${SERVER_IMAGES_BASE_URL}/previous-managed/hamra-residence-1.jpg`,
-    hamra2: `${SERVER_IMAGES_BASE_URL}/previous-managed/hamra-residence-3.jpg`,
-    hamra3: `${SERVER_IMAGES_BASE_URL}/previous-managed/hamra-residence-4.jpg`,
-    salam1: `${SERVER_IMAGES_BASE_URL}/previous-managed/salam-mall-2.jpg`,
-    salam2: `${SERVER_IMAGES_BASE_URL}/previous-managed/salam-mall-4.jpg`,
-    salam3: `${SERVER_IMAGES_BASE_URL}/previous-managed/salam-mall-6.jpg`,
-    salam4: `${SERVER_IMAGES_BASE_URL}/previous-managed/salam-mall-7.jpg`,
-    salam5: `${SERVER_IMAGES_BASE_URL}/previous-managed/salam-mall-8.jpg`,
-
-    // Construction and Renovation Projects
-    cartblanche1: `${SERVER_IMAGES_BASE_URL}/construction-renovation/cartblanche-2.jpg`,
-    cartblanche2: `${SERVER_IMAGES_BASE_URL}/construction-renovation/cartblanche-3.jpg`,
-    clinic1: `${SERVER_IMAGES_BASE_URL}/construction-renovation/medical-clinic-1.jpg`,
-    clinic2: `${SERVER_IMAGES_BASE_URL}/construction-renovation/medical-clinic.jpg`,
-  };
-
-  // Define server video URLs
-  const serverVideos = {
-    jabriyaVideo: `${SERVER_VIDEOS_BASE_URL}/aljabria-video.mp4`
+  const fetchCategories = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get('/api/categories');
+      setCategories(response.data);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Scroll functions
@@ -123,184 +48,8 @@ const Properties: React.FC = () => {
     }
   };
 
-  // Al Jabriya complete gallery
-  const aljabriaGallery = [
-    serverImages.jabriyaImg, serverImages.aljabria1, serverImages.aljabria2, serverImages.aljabria3, 
-    serverImages.aljabria4, serverImages.aljabria5, serverImages.aljabria6, serverImages.aljabria7, 
-    serverImages.aljabria8, serverImages.aljabria9, serverImages.aljabria10, serverImages.aljabria11, 
-    serverImages.aljabria12, serverImages.aljabria13, serverImages.aljabria14, serverImages.aljabria15, 
-    serverImages.aljabria16, serverImages.aljabria17, serverImages.aljabria18, serverImages.aljabria19, 
-    serverImages.aljabria20, serverImages.aljabria21, serverImages.aljabria22, serverImages.aljabria23, 
-    serverImages.aljabria24, serverImages.aljabria25, serverImages.aljabria26, serverImages.aljabria27,
-    serverImages.aljabria30, serverImages.aljabria32, serverImages.aljabria33, serverImages.aljabria34, 
-    serverImages.five, serverImages.six, serverImages.three, serverImages.four
-  ];
-
-  // Grouped properties by folder/category with your actual images and original translations
-  const propertyGroups = [
-    {
-      folderName: t("folders.current"),
-      folderNameEn: "Current Properties",
-      category: 'current',
-      properties: [
-        {
-          image: serverImages.jabriyaImg,
-          title: t('properties.jabriya.title'),
-          category: 'current',
-          featured: true,
-          video: serverVideos.jabriyaVideo,
-          gallery: aljabriaGallery,
-          isHighlight: true // Flag for special treatment
-        },
-        // {
-        //   image: btbuilding,
-        //   title: t('properties.btbuilding.title'),
-        //   category: 'current',
-        //   gallery: [btbuilding]
-        // },
-        // {
-        //   image: daralawad,
-        //   title: t('properties.daralawad.title'),
-        //   category: 'current',
-        //   gallery: [daralawad]
-        // },
-        // {
-        //   image: altijari,
-        //   title: t('properties.altijari.title'),
-        //   category: 'current',
-        //   gallery: [altijari]
-        // }
-      ]
-    },
-    {
-      folderName: t("folders.alrayaan"),
-      folderNameEn: "alrayaancomplexsalmiyah",
-      category: 'complexes',
-      properties: [
-        {
-          image: serverImages.alrayaan1,
-        //  title: t('properties.alrayaan.title'),
-          category: 'complexes',
-          location: 'https://maps.app.goo.gl/n7ZhwdxmRNbRTKe7A',
-          featured: false,
-          gallery: [serverImages.alrayaan1, serverImages.alrayaan2, serverImages.alrayaan3]
-        }
-      ]
-    },
-    {
-      folderName: t("folders.bnidalqar"),
-      folderNameEn: "Bnid Al-Qar Complex",
-      category: 'complexes',
-      properties: [
-        {
-          image: serverImages.bnidAlqar16and14,
-          //title: t('properties.bnidalqar.title'),
-          category: 'complexes',
-          featured: false,
-          gallery: [serverImages.bnidAlqar16and14, serverImages.bnidAlqar14and16]
-        }
-      ]
-    },
-    {
-      folderName: t("folders.laplage"),
-      folderNameEn: "La Plage Complex - Arabian Gulf Street",
-      category: 'complexes',
-      properties: [
-        {
-          image: serverImages.lablag1,
-       //   title: t('properties.lablag.title'),
-          category: 'complexes',
-          location: 'https://maps.app.goo.gl/n3va1GHMwC6Q9AVdA',
-          gallery: [serverImages.lablag1, serverImages.lablag2]
-        }
-      ]
-    },
-    // {
-    //   folderName: t("folders.mahbullahComplex"),
-    //   folderNameEn: "Mahbullah 216 Properties",
-    //   category: 'residential',
-    //   properties: [
-    //     {
-    //       image: mahbullah1,
-    //       title: t('properties.mahbullah216.title'),
-    //       category: 'residential',
-    //       location: 'https://maps.app.goo.gl/L6xEWegmmwMEsVcJ8',
-    //       gallery: [mahbullah1, mahbullah2]
-    //     }
-    //   ]
-    // },
-    {
-      folderName: t("folders.mahbullahComplex"),
-      folderNameEn: "Mahbullah Complex",
-      category: 'complexes',
-      properties: [
-        {
-          image: serverImages.mahbullahComplex1,
-       //   title: t('properties.mahbullahComplex.title'),
-          category: 'complexes',
-          location: 'https://maps.app.goo.gl/SwHvnd4NYuNvPEJ68',
-          featured: false,
-          gallery: [serverImages.mahbullahComplex1, serverImages.mahbullahComplex2]
-        }
-      ]
-    },
-    {
-      folderName: t("folders.villas"),
-      folderNameEn: "Residential Houses and Villas",
-      category: 'residential',
-      properties: [
-        {
-          image: serverImages.villa1,
-        //  title: t('properties.villa1.title'),
-          category: 'residential',
-          location: 'https://maps.app.goo.gl/dFJEcctsmeZQeoMQ6',
-          gallery: [serverImages.villa1, serverImages.villa2, serverImages.villa3, serverImages.villa4, serverImages.villa5, serverImages.mahbullah1]
-        }
-      ]
-    },
-    {
-      folderName: t("folders.previous"),
-      folderNameEn: "Previously Managed Properties",
-      category: 'previous',
-      properties: [
-        {
-          image: serverImages.hamra1,
-          title: t('properties.hamra.title'),
-          category: 'previous',
-          gallery: [serverImages.hamra1, serverImages.hamra2, serverImages.hamra3]
-        },
-        {
-          image: serverImages.salam1,
-          title: t('properties.salam1.title'),
-          category: 'previous',
-          gallery: [serverImages.salam1, serverImages.salam2, serverImages.salam3, serverImages.salam4, serverImages.salam5]
-        }
-      ]
-    },
-    {
-      folderName: t("folders.construction"),
-      folderNameEn: "Construction and Renovation Projects",
-      category: 'construction',
-      properties: [
-        {
-          image: serverImages.cartblanche1,
-          title: t('properties.cartblanche.title'),
-          category: 'construction',
-          location: 'https://maps.app.goo.gl/aEMH9R7P6fSxadVPA',
-          gallery: [serverImages.cartblanche1, serverImages.cartblanche2]
-        },
-        {
-          image: serverImages.clinic1,
-          title: t('properties.clinic.title'),
-          category: 'construction',
-          location: 'https://maps.app.goo.gl/4HxqXRS89skExD6P9',
-          gallery: [serverImages.clinic1, serverImages.clinic2]
-        }
-      ]
-    }
-  ];
-
-  const categories = [
+  // Dynamic category mapping
+  const categoryTypes = [
     { id: 'all', name: t('categories.all'), icon: Building },
     { id: 'current', name: t('categories.current'), icon: Star },
     { id: 'complexes', name: t('categories.complexes'), icon: Building },
@@ -309,9 +58,20 @@ const Properties: React.FC = () => {
     { id: 'construction', name: t('categories.construction'), icon: Building }
   ];
 
-  const filteredGroups = activeCategory === 'all' 
-    ? propertyGroups 
-    : propertyGroups.filter(group => group.category === activeCategory);
+  // Map backend categories to frontend category types
+  const getCategoryType = (categoryName: string) => {
+    const name = categoryName.toLowerCase();
+    if (name.includes('current')) return 'current';
+    if (name.includes('complex') || name.includes('alrayaan') || name.includes('plage') || name.includes('mahbullah')) return 'complexes';
+    if (name.includes('residential') || name.includes('villa') || name.includes('house')) return 'residential';
+    if (name.includes('previous') || name.includes('managed')) return 'previous';
+    if (name.includes('construction') || name.includes('renovation')) return 'construction';
+    return 'current';
+  };
+
+  const filteredCategories = activeCategory === 'all' 
+    ? categories 
+    : categories.filter(category => getCategoryType(category.name_en) === activeCategory);
 
   const handleLocationClick = (location: string) => {
     window.open(location, '_blank');
@@ -327,6 +87,19 @@ const Properties: React.FC = () => {
     };
     return colors[category as keyof typeof colors] || 'from-gray-500 to-gray-600';
   };
+
+  if (loading) {
+    return (
+      <section id="properties" className="py-20 bg-gradient-to-br from-white via-gray-50 to-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading properties...</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section id="properties" className="py-20 bg-gradient-to-br from-white via-gray-50 to-white relative overflow-hidden">
@@ -350,7 +123,7 @@ const Properties: React.FC = () => {
 
         {/* Category Filter */}
         <div className="flex flex-wrap justify-center gap-4 mb-16">
-          {categories.map((category) => {
+          {categoryTypes.map((category) => {
             const Icon = category.icon;
             return (
               <button
@@ -380,27 +153,30 @@ const Properties: React.FC = () => {
 
         {/* Properties Groups */}
         <div className="space-y-16">
-          {filteredGroups.map((group, groupIndex) => (
-            <div key={groupIndex} className="space-y-8">
+          {filteredCategories.map((category, categoryIndex) => (
+            <div key={categoryIndex} className="space-y-8">
               {/* Group Header */}
               <div className="text-center">
                 <div className="inline-flex items-center gap-3 bg-blue-50 backdrop-blur-sm border border-blue-200 rounded-full px-8 py-4 mb-4">
                   <Building className="w-6 h-6" style={{ color: '#004aaf' }} />
                   <h3 className="text-2xl md:text-3xl font-bold" style={{ color: '#004aaf' }}>
-                    {group.folderName}
+                    {language === 'ar' ? category.name_ar : category.name_en}
                   </h3>
                 </div>
                 <div className="w-24 h-1 mx-auto rounded-full" style={{ background: 'linear-gradient(to right, #004aaf, #0056cc)' }}></div>
               </div>
 
-              {/* Properties Grid for this group */}
+              {/* Properties Grid for this category */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-8">
-                {group.properties.map((property, index) => {
-                  const cardId = `${group.category}-${groupIndex}-${index}`;
+                {category.properties.map((property, index) => {
+                  const cardId = `${category.id}-${categoryIndex}-${index}`;
                   const scrollKey = `scroll-${cardId}`;
                   const isHovered = hoveredCard === cardId;
-                  const isJabriya = property.isHighlight;
-                  const hasMultipleImages = property.gallery && property.gallery.length > 1;
+                  const isJabriya = property.featured;
+                  const hasMultipleImages = property.images && property.images.length > 1;
+                  const mainImage = property.images && property.images.length > 0 ? property.images[0].image_url : '';
+                  const propertyTitle = language === 'ar' ? property.title_ar : property.title_en;
+                  const propertyDescription = language === 'ar' ? property.description_ar : property.description_en;
                   
                   return (
                     <div
@@ -441,26 +217,26 @@ const Properties: React.FC = () => {
                         {/* Main Image Container - تم تطويل صورة الجابرية */}
                         <div className={`relative overflow-hidden ${isJabriya ? 'h-96 md:h-[28rem]' : 'h-80'}`}>
                           <img
-                            src={property.image}
-                            alt={property.title}
+                            src={mainImage}
+                            alt={propertyTitle}
                             className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
                           />
                           
                           {/* Gradient Overlay */}
-                          <div className={`absolute inset-0 bg-gradient-to-t ${getCategoryColor(property.category)} opacity-0 group-hover:opacity-20 transition-opacity duration-500`} />
+                          <div className={`absolute inset-0 bg-gradient-to-t ${getCategoryColor(getCategoryType(category.name_en))} opacity-0 group-hover:opacity-20 transition-opacity duration-500`} />
                           
                           {/* Action Buttons Overlay */}
                           <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center">
                             <div className="flex gap-3 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
                               <button
-                                onClick={() => setSelectedImage(property.image)}
+                                onClick={() => setSelectedImage(mainImage)}
                                 className="bg-white/90 hover:bg-white text-black p-3 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-110"
                               >
                                 <Eye size={20} />
                               </button>
-                              {property.video && (
+                              {property.video_url && (
                                 <button
-                                  onClick={() => setSelectedVideo(property.video!)}
+                                  onClick={() => setSelectedVideo(property.video_url!)}
                                   className="bg-red-500 hover:bg-red-600 text-white p-3 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-110"
                                 >
                                   <Play size={20} />
@@ -484,20 +260,20 @@ const Properties: React.FC = () => {
                           {/* Category Tag */}
                           <div className="mb-3">
                             <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold text-white" style={{ background: 'linear-gradient(to right, #004aaf, #0056cc)' }}>
-                              {categories.find(c => c.id === property.category)?.name}
+                              {categoryTypes.find(c => c.id === getCategoryType(category.name_en))?.name}
                             </span>
                           </div>
 
                           <h4 className={`font-bold text-gray-900 mb-3 line-clamp-2 group-hover:text-blue-600 transition-colors duration-300 ${
                             isJabriya ? 'text-2xl md:text-3xl' : 'text-xl'
                           }`}>
-                            {property.title}
+                            {propertyTitle}
                           </h4>
 
-                          {/* Special description for Jabriya */}
-                          {isJabriya && (
+                          {/* Description */}
+                          {propertyDescription && (
                             <p className="text-gray-600 text-lg mb-4 leading-relaxed">
-                              {t('title.aljbria')}
+                              {propertyDescription}
                             </p>
                           )}
 
@@ -508,12 +284,12 @@ const Properties: React.FC = () => {
                                 <div className="flex items-center gap-2">
                                   <div className="w-4 h-4 rounded-full" style={{ background: 'linear-gradient(to right, #004aaf, #0056cc)' }}></div>
                                   <span className="text-sm text-gray-600 font-medium">
-                                    {t("gallery")} ({property.gallery!.length} )
+                                    {t("gallery")} ({property.images!.length})
                                   </span>
                                 </div>
                                 
                                 {/* Scroll Controls - Show only for galleries with many images */}
-                                {property.gallery!.length > 5 && (
+                                {property.images!.length > 5 && (
                                   <div className="flex gap-2">
                                     <button
                                       onClick={() => scrollGallery('left', scrollKey)}
@@ -548,18 +324,18 @@ const Properties: React.FC = () => {
                                     WebkitScrollbar: { display: 'none' }
                                   }}
                                 >
-                                  {property.gallery!.map((galleryImg, galleryIndex) => (
+                                  {property.images!.map((image, galleryIndex) => (
                                     <div
                                       key={galleryIndex}
                                       className={`relative flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden cursor-pointer group/thumb hover:ring-2 hover:ring-amber-500/50 transition-all duration-200 hover:scale-105 ${
                                         isJabriya ? 'snap-start' : ''
                                       }`}
                                      style={{ '--tw-ring-color': '#004aaf' } as React.CSSProperties}
-                                      onClick={() => setSelectedImage(galleryImg)}
+                                      onClick={() => setSelectedImage(image.image_url)}
                                     >
                                       <img
-                                        src={galleryImg}
-                                        alt={`${property.title} - صورة ${galleryIndex + 1}`}
+                                        src={image.image_url}
+                                        alt={`${propertyTitle} - صورة ${galleryIndex + 1}`}
                                         className="w-full h-full object-cover transition-transform duration-200"
                                         loading="lazy"
                                       />
@@ -582,7 +358,7 @@ const Properties: React.FC = () => {
                                        {t("move")}
                                       </span>
                                       <div className="flex gap-1">
-                                        {[...Array(Math.ceil(property.gallery!.length / 5))].map((_, i) => (
+                                        {[...Array(Math.ceil(property.images!.length / 5))].map((_, i) => (
                                           <div
                                             key={i}
                                             className="w-1.5 h-1.5 rounded-full"
@@ -621,7 +397,7 @@ const Properties: React.FC = () => {
         </div>
 
         {/* Empty State */}
-        {filteredGroups.length === 0 && (
+        {filteredCategories.length === 0 && (
           <div className="text-center py-20">
             <Building className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-600 mb-2">لا توجد عقارات في هذه الفئة</h3>

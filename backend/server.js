@@ -212,11 +212,18 @@ app.post('/api/login', async (req, res) => {
 
 // Get all categories with images
 app.get('/api/categories', (req, res) => {
-  // First get all categories
+  // Get categories with their properties and images
   const categoriesQuery = `
-    SELECT id, name, name_ar, description, description_ar, created_at, updated_at
-    FROM categories
-    ORDER BY created_at DESC
+    SELECT 
+      c.id,
+      c.name as name_en,
+      c.name_ar,
+      c.description as description_en,
+      c.description_ar,
+      c.created_at,
+      c.updated_at
+    FROM categories c
+    ORDER BY c.created_at DESC
   `;
 
   db.all(categoriesQuery, [], (err, categories) => {
@@ -229,40 +236,93 @@ app.get('/api/categories', (req, res) => {
       return res.json([]);
     }
 
-    // Then get images for each category
+    // Get properties for each category
     const categoryIds = categories.map(cat => cat.id);
     const placeholders = categoryIds.map(() => '?').join(',');
     
-    const imagesQuery = `
-      SELECT id, category_id, filename, original_name, title, title_ar, video_url, file_size, mime_type, created_at
-      FROM images
-      WHERE category_id IN (${placeholders})
-      ORDER BY created_at ASC
+    const propertiesQuery = `
+      SELECT 
+        p.id,
+        p.category_id,
+        p.title_en,
+        p.title_ar,
+        p.description_en,
+        p.description_ar,
+        p.location,
+        p.video_url,
+        p.featured,
+        p.created_at
+      FROM properties p
+      WHERE p.category_id IN (${placeholders})
+      ORDER BY p.featured DESC, p.created_at ASC
     `;
 
-    db.all(imagesQuery, categoryIds, (err, images) => {
+    db.all(propertiesQuery, categoryIds, (err, properties) => {
       if (err) {
-        console.error('Database error fetching images:', err);
+        console.error('Database error fetching properties:', err);
         return res.status(500).json({ error: 'Database error' });
       }
 
-      // Group images by category_id
-      const imagesByCategory = {};
-      images.forEach(image => {
-        if (!imagesByCategory[image.category_id]) {
-          imagesByCategory[image.category_id] = [];
+      // Get images for all properties
+      const propertyIds = properties.map(prop => prop.id);
+      if (propertyIds.length === 0) {
+        const result = categories.map(category => ({
+          ...category,
+          properties: []
+        }));
+        return res.json(result);
+      }
+
+      const imagePlaceholders = propertyIds.map(() => '?').join(',');
+      const imagesQuery = `
+        SELECT 
+          pi.id,
+          pi.property_id,
+          pi.image_url,
+          pi.title_en,
+          pi.title_ar,
+          pi.sort_order
+        FROM property_images pi
+        WHERE pi.property_id IN (${imagePlaceholders})
+        ORDER BY pi.property_id, pi.sort_order ASC
+      `;
+
+      db.all(imagesQuery, propertyIds, (err, images) => {
+        if (err) {
+          console.error('Database error fetching images:', err);
+          return res.status(500).json({ error: 'Database error' });
         }
-        imagesByCategory[image.category_id].push(image);
+
+        // Group images by property_id
+        const imagesByProperty = {};
+        images.forEach(image => {
+          if (!imagesByProperty[image.property_id]) {
+            imagesByProperty[image.property_id] = [];
+          }
+          imagesByProperty[image.property_id].push(image);
+        });
+
+        // Group properties by category_id
+        const propertiesByCategory = {};
+        properties.forEach(property => {
+          if (!propertiesByCategory[property.category_id]) {
+            propertiesByCategory[property.category_id] = [];
+          }
+          propertiesByCategory[property.category_id].push({
+            ...property,
+            images: imagesByProperty[property.id] || []
+          });
+        });
+
+        // Combine categories with their properties
+        const result = categories.map(category => ({
+          ...category,
+          properties: propertiesByCategory[category.id] || []
+        }));
+
+        console.log(`Returning ${result.length} categories with properties`);
+        res.json(result);
       });
-
-      // Combine categories with their images
-      const result = categories.map(category => ({
-        ...category,
-        images: imagesByCategory[category.id] || []
-      }));
-
-      console.log(`Returning ${result.length} categories with images`);
-      res.json(result);
     });
   });
 });
@@ -440,6 +500,148 @@ app.delete('/api/images/:id', authenticateToken, (req, res) => {
 });
 
 // Health check endpoint
+// Get contact information
+app.get('/api/contact', (req, res) => {
+  const contactQuery = `
+    SELECT type, value, label_en, label_ar
+    FROM contact_info
+    ORDER BY created_at ASC
+  `;
+
+  db.all(contactQuery, [], (err, contacts) => {
+    if (err) {
+      console.error('Database error fetching contact info:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    // Group contacts by type
+    const contactInfo = {};
+    contacts.forEach(contact => {
+      if (!contactInfo[contact.type]) {
+        contactInfo[contact.type] = [];
+      }
+      contactInfo[contact.type].push({
+        value: contact.value,
+        label_en: contact.label_en,
+        label_ar: contact.label_ar
+      });
+    });
+
+    res.json(contactInfo);
+  });
+});
+
+// Get companies
+app.get('/api/companies', (req, res) => {
+  const companiesQuery = `
+    SELECT name_en, name_ar
+    FROM companies
+    ORDER BY created_at ASC
+  `;
+
+  db.all(companiesQuery, [], (err, companies) => {
+    if (err) {
+      console.error('Database error fetching companies:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    res.json(companies);
+  });
+});
+
+// Create property with images
+app.post('/api/properties', authenticateToken, (req, res) => {
+  const { category_id, title_en, title_ar, description_en, description_ar, location, video_url, featured, images } = req.body;
+
+  if (!category_id) {
+    return res.status(400).json({ error: 'Category ID is required' });
+  }
+
+  const query = `
+    INSERT INTO properties (category_id, title_en, title_ar, description_en, description_ar, location, video_url, featured)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  db.run(query, [
+    category_id,
+    title_en,
+    title_ar,
+    description_en,
+    description_ar,
+    location,
+    video_url,
+    featured ? 1 : 0
+  ], function(err) {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    const propertyId = this.lastID;
+
+    // Insert images if provided
+    if (images && images.length > 0) {
+      const imageStmt = db.prepare(`
+        INSERT INTO property_images (property_id, image_url, title_en, title_ar, sort_order)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+
+      images.forEach((image, index) => {
+        imageStmt.run(
+          propertyId,
+          image.url,
+          image.title_en || null,
+          image.title_ar || null,
+          index
+        );
+      });
+
+      imageStmt.finalize();
+    }
+
+    res.json({
+      success: true,
+      id: propertyId,
+      message: 'Property created successfully'
+    });
+  });
+});
+
+// Update contact information
+app.put('/api/contact', authenticateToken, (req, res) => {
+  const { contacts } = req.body;
+
+  if (!contacts || !Array.isArray(contacts)) {
+    return res.status(400).json({ error: 'Contacts array is required' });
+  }
+
+  // Clear existing contacts and insert new ones
+  db.run('DELETE FROM contact_info', [], (err) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    const stmt = db.prepare(`
+      INSERT INTO contact_info (type, value, label_en, label_ar)
+      VALUES (?, ?, ?, ?)
+    `);
+
+    contacts.forEach(contact => {
+      stmt.run(contact.type, contact.value, contact.label_en, contact.label_ar);
+    });
+
+    stmt.finalize((err) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
+      }
+
+      res.json({
+        success: true,
+        message: 'Contact information updated successfully'
+      });
+    });
+  });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
